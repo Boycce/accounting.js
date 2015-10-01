@@ -31,10 +31,12 @@
 			decimal : ".",		// decimal point separator
 			thousand : ",",		// thousands separator
 			precision : 2,		// decimal places
-			grouping : 3		// digit grouping (not implemented yet)
+			min_precision: null,
+			grouping : 3,		// digit grouping (not implemented yet)
 		},
 		number: {
 			precision : 0,		// default precision on numbers is 0
+			min_precision: null,
 			grouping : 3,		// digit grouping (not implemented yet)
 			thousand : ",",
 			decimal : "."
@@ -120,6 +122,20 @@
 		return isNaN(val)? base : val;
 	}
 
+	/**
+	 * Remove all zeros exceeding the minimum precision amount.
+	 */
+	function minPrecision(str, decimal, min_precision) {
+		var parts = str.split(decimal);
+		var regex = new RegExp('([0-9]{' + min_precision + '})(0+)$');
+		var decimalPart = parts[1].replace(regex, '$1');
+		
+		if (decimalPart.length > 0) {
+			return parts[0] + decimal + decimalPart;
+		} else {
+			return parts[0];
+		}
+	}
 
 	/**
 	 * Parses a format string or object and returns format obj for use in rendering
@@ -229,11 +245,11 @@
 	 * Localise by overriding the precision and thousand / decimal separators
 	 * 2nd parameter `precision` can be an object matching `settings.number`
 	 */
-	var formatNumber = lib.formatNumber = lib.format = function(number, precision, thousand, decimal) {
+	var formatNumber = lib.formatNumber = lib.format = function(number, precision, thousand, decimal, min_precision) {
 		// Resursively format arrays:
 		if (isArray(number)) {
 			return map(number, function(val) {
-				return formatNumber(val, precision, thousand, decimal);
+				return formatNumber(val, precision, thousand, decimal, min_precision);
 			});
 		}
 
@@ -244,6 +260,7 @@
 		var opts = defaults(
 				(isObject(precision) ? precision : {
 					precision : precision,
+					min_precision: min_precision,
 					thousand : thousand,
 					decimal : decimal
 				}),
@@ -259,7 +276,13 @@
 			mod = base.length > 3 ? base.length % 3 : 0;
 
 		// Format the number:
-		return negative + (mod ? base.substr(0, mod) + opts.thousand : "") + base.substr(mod).replace(/(\d{3})(?=\d)/g, "$1" + opts.thousand) + (usePrecision ? opts.decimal + toFixed(Math.abs(number), usePrecision).split('.')[1] : "");
+		var formatted_number = negative + 
+			(mod ? base.substr(0, mod) + opts.thousand : "") + 
+			base.substr(mod).replace(/(\d{3})(?=\d)/g, "$1" + opts.thousand) + 
+			(usePrecision ? opts.decimal + toFixed(Math.abs(number), usePrecision).split('.')[1] : "");
+
+		// Caluclate a minimum precison
+		return opts.min_precision !== null? minPrecision(formatted_number, opts.decimal, opts.min_precision) : formatted_number;
 	};
 
 
@@ -274,11 +297,11 @@
 	 *
 	 * To do: tidy up the parameters
 	 */
-	var formatMoney = lib.formatMoney = function(number, symbol, precision, thousand, decimal, format) {
+	var formatMoney = lib.formatMoney = function(number, symbol, precision, thousand, decimal, min_precision, format) {
 		// Resursively format arrays:
 		if (isArray(number)) {
 			return map(number, function(val){
-				return formatMoney(val, symbol, precision, thousand, decimal, format);
+				return formatMoney(val, symbol, precision, thousand, decimal, min_precision, format);
 			});
 		}
 
@@ -290,6 +313,7 @@
 				(isObject(symbol) ? symbol : {
 					symbol : symbol,
 					precision : precision,
+					min_precision: min_precision,
 					thousand : thousand,
 					decimal : decimal,
 					format : format
@@ -304,7 +328,9 @@
 			useFormat = number > 0 ? formats.pos : number < 0 ? formats.neg : formats.zero;
 
 		// Return with currency symbol added:
-		return useFormat.replace('%s', opts.symbol).replace('%v', formatNumber(Math.abs(number), checkPrecision(opts.precision), opts.thousand, opts.decimal));
+		return useFormat
+			.replace('%s', opts.symbol)
+			.replace('%v', formatNumber(Math.abs(number), checkPrecision(opts.precision), opts.thousand, opts.decimal, opts.min_precision));
 	};
 
 
@@ -320,7 +346,7 @@
 	 * NB: `white-space:pre` CSS rule is required on the list container to prevent
 	 * browsers from collapsing the whitespace in the output strings.
 	 */
-	lib.formatColumn = function(list, symbol, precision, thousand, decimal, format) {
+	lib.formatColumn = function(list, symbol, precision, thousand, decimal, min_precision, format) {
 		if (!list) return [];
 
 		// Build options object from second param (if object) or all params, extending defaults:
@@ -328,6 +354,7 @@
 				(isObject(symbol) ? symbol : {
 					symbol : symbol,
 					precision : precision,
+					min_precision: min_precision,
 					thousand : thousand,
 					decimal : decimal,
 					format : format
@@ -357,7 +384,7 @@
 					var useFormat = val > 0 ? formats.pos : val < 0 ? formats.neg : formats.zero,
 
 						// Format this value, push into formatted list and save the length:
-						fVal = useFormat.replace('%s', opts.symbol).replace('%v', formatNumber(Math.abs(val), checkPrecision(opts.precision), opts.thousand, opts.decimal));
+						fVal = useFormat.replace('%s', opts.symbol).replace('%v', formatNumber(Math.abs(val), checkPrecision(opts.precision), opts.thousand, opts.decimal, opts.min_precision));
 
 					if (fVal.length > maxLength) maxLength = fVal.length;
 					return fVal;
