@@ -31,12 +31,12 @@
 			decimal : ".",		// decimal point separator
 			thousand : ",",		// thousands separator
 			precision : 2,		// decimal places
-			min_precision: null,
+			precision_min: null,
 			grouping : 3,		// digit grouping (not implemented yet)
 		},
 		number: {
 			precision : 0,		// default precision on numbers is 0
-			min_precision: null,
+			precision_min: null,
 			grouping : 3,		// digit grouping (not implemented yet)
 			thousand : ",",
 			decimal : "."
@@ -125,9 +125,9 @@
 	/**
 	 * Remove all zeros exceeding the minimum precision amount.
 	 */
-	function minPrecision(str, decimal, min_precision) {
+	function precisionMin(str, decimal, precision_min) {
 		var parts = str.split(decimal);
-		var regex = new RegExp('([0-9]{' + min_precision + '})(0+)$');
+		var regex = new RegExp('([0-9]{' + precision_min + '})(0+)$');
 		var decimalPart = parts[1].replace(regex, '$1');
 		
 		if (decimalPart.length > 0) {
@@ -245,11 +245,11 @@
 	 * Localise by overriding the precision and thousand / decimal separators
 	 * 2nd parameter `precision` can be an object matching `settings.number`
 	 */
-	var formatNumber = lib.formatNumber = lib.format = function(number, precision, thousand, decimal, min_precision) {
+	var formatNumber = lib.formatNumber = lib.format = function(number, precision, thousand, decimal, precision_min) {
 		// Resursively format arrays:
 		if (isArray(number)) {
 			return map(number, function(val) {
-				return formatNumber(val, precision, thousand, decimal, min_precision);
+				return formatNumber(val, precision, thousand, decimal, precision_min);
 			});
 		}
 
@@ -260,7 +260,7 @@
 		var opts = defaults(
 				(isObject(precision) ? precision : {
 					precision : precision,
-					min_precision: min_precision,
+					precision_min: precision_min,
 					thousand : thousand,
 					decimal : decimal
 				}),
@@ -282,7 +282,7 @@
 			(usePrecision ? opts.decimal + toFixed(Math.abs(number), usePrecision).split('.')[1] : "");
 
 		// Caluclate a minimum precison
-		return opts.min_precision !== null? minPrecision(formatted_number, opts.decimal, opts.min_precision) : formatted_number;
+		return opts.precision_min !== null? precisionMin(formatted_number, opts.decimal, opts.precision_min) : formatted_number;
 	};
 
 
@@ -297,11 +297,11 @@
 	 *
 	 * To do: tidy up the parameters
 	 */
-	var formatMoney = lib.formatMoney = function(number, symbol, precision, thousand, decimal, min_precision, format) {
+	var formatMoney = lib.formatMoney = function(number, symbol, precision, thousand, decimal, precision_min, format) {
 		// Resursively format arrays:
 		if (isArray(number)) {
 			return map(number, function(val){
-				return formatMoney(val, symbol, precision, thousand, decimal, min_precision, format);
+				return formatMoney(val, symbol, precision, thousand, decimal, precision_min, format);
 			});
 		}
 
@@ -313,7 +313,7 @@
 				(isObject(symbol) ? symbol : {
 					symbol : symbol,
 					precision : precision,
-					min_precision: min_precision,
+					precision_min: precision_min,
 					thousand : thousand,
 					decimal : decimal,
 					format : format
@@ -330,7 +330,7 @@
 		// Return with currency symbol added:
 		return useFormat
 			.replace('%s', opts.symbol)
-			.replace('%v', formatNumber(Math.abs(number), checkPrecision(opts.precision), opts.thousand, opts.decimal, opts.min_precision));
+			.replace('%v', formatNumber(Math.abs(number), checkPrecision(opts.precision), opts.thousand, opts.decimal, opts.precision_min));
 	};
 
 
@@ -346,7 +346,7 @@
 	 * NB: `white-space:pre` CSS rule is required on the list container to prevent
 	 * browsers from collapsing the whitespace in the output strings.
 	 */
-	lib.formatColumn = function(list, symbol, precision, thousand, decimal, min_precision, format) {
+	lib.formatColumn = function(list, symbol, precision, thousand, decimal, precision_min, format) {
 		if (!list) return [];
 
 		// Build options object from second param (if object) or all params, extending defaults:
@@ -354,7 +354,7 @@
 				(isObject(symbol) ? symbol : {
 					symbol : symbol,
 					precision : precision,
-					min_precision: min_precision,
+					precision_min: precision_min,
 					thousand : thousand,
 					decimal : decimal,
 					format : format
@@ -384,7 +384,7 @@
 					var useFormat = val > 0 ? formats.pos : val < 0 ? formats.neg : formats.zero,
 
 						// Format this value, push into formatted list and save the length:
-						fVal = useFormat.replace('%s', opts.symbol).replace('%v', formatNumber(Math.abs(val), checkPrecision(opts.precision), opts.thousand, opts.decimal, opts.min_precision));
+						fVal = useFormat.replace('%s', opts.symbol).replace('%v', formatNumber(Math.abs(val), checkPrecision(opts.precision), opts.thousand, opts.decimal, opts.precision_min));
 
 					if (fVal.length > maxLength) maxLength = fVal.length;
 					return fVal;
